@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DDoS Mitigation System</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<!-- CRT scan-line overlay -->
+<div class="crt-overlay"></div>
+
+<!-- Anomaly alert banner -->
+<div id="anomaly-alert" class="anomaly-alert hidden">
+  ⚠ ANOMALY DETECTED — DISTRIBUTED FLOOD SIGNATURE
+</div>
+
+<!-- Top header bar -->
+<header class="top-bar">
+  <div class="top-bar-title">// DDOS MITIGATION SYSTEM v1.0</div>
+  <div class="top-bar-stats">
+    <span class="stat-chip syn">SYN <span id="hdr-syn">0</span> pps</span>
+    <span class="stat-chip udp">UDP <span id="hdr-udp">0</span> pps</span>
+    <span class="stat-chip icmp">ICMP <span id="hdr-icmp">0</span> pps</span>
+    <span class="stat-chip total">TOTAL <span id="hdr-total">0</span> pps</span>
+  </div>
+</header>
+
+<!-- Main grid -->
+<div class="grid-container">
+
+  <!-- ROW 1 ── Live traffic chart + Attack Control -->
+  <div class="panel" id="traffic-panel">
+    <div class="panel-header">LIVE TRAFFIC (60 s)</div>
+    <canvas id="traffic-canvas"></canvas>
+  </div>
+
+  <div class="panel" id="attack-control">
+    <div class="panel-header">ATTACK CONTROL</div>
+
+    <div class="attack-buttons">
+      <button class="attack-btn" id="btn-syn"   onclick="startAttack('syn')">SYN</button>
+      <button class="attack-btn" id="btn-udp"   onclick="startAttack('udp')">UDP</button>
+      <button class="attack-btn" id="btn-icmp"  onclick="startAttack('icmp')">ICMP</button>
+      <button class="attack-btn" id="btn-mixed" onclick="startAttack('mixed')">MIXED</button>
+    </div>
+
+    <div class="control-group">
+      <label>Rate &nbsp;<span class="val-display" id="rate-val">500</span> pps</label>
+      <input type="range" id="rate-slider" min="100" max="5000" step="100" value="500"
+             oninput="document.getElementById('rate-val').textContent=this.value">
+    </div>
+    <div class="control-group">
+      <label>Duration &nbsp;<span class="val-display" id="dur-val">30</span> s</label>
+      <input type="range" id="dur-slider" min="5" max="120" step="5" value="30"
+             oninput="document.getElementById('dur-val').textContent=this.value">
+    </div>
+    <div class="control-group">
+      <label>Target</label>
+      <input type="text" id="target-input" class="text-input" value="127.0.0.1">
+    </div>
+    <div class="control-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="fixed-src-check">
+        Fixed-source SYN &nbsp;<span class="dim-note">(single-IP flood)</span>
+      </label>
+    </div>
+
+    <button class="stop-btn" onclick="stopAttack()">■ STOP ALL</button>
+    <div id="attack-badge" class="attack-badge hidden"></div>
+  </div>
+
+  <!-- ROW 2 ── Entropy + Anomaly + Threat scores -->
+  <div class="panel" id="entropy-panel">
+    <div class="panel-header">ENTROPY GAUGES</div>
+    <div class="gauges-row">
+      <div class="gauge-wrap">
+        <div class="gauge-title">src /24 prefix H</div>
+        <div id="entropy-src-gauge"></div>
+      </div>
+      <div class="gauge-wrap">
+        <div class="gauge-title">dst port H</div>
+        <div id="entropy-dst-gauge"></div>
+      </div>
+    </div>
+    <div class="entropy-note">High src H + high pps = distributed flood</div>
+  </div>
+
+  <div class="panel" id="anomaly-panel">
+    <div class="panel-header">
+      ANOMALY Z-SCORE &nbsp;
+      <span id="z-value" class="z-value">0.00 σ</span>
+    </div>
+    <canvas id="anomaly-canvas"></canvas>
+  </div>
+
+  <div class="panel" id="threat-panel">
+    <div class="panel-header">THREAT SCORES (top 10)</div>
+    <table class="threat-table" id="threat-table">
+      <thead>
+        <tr>
+          <th>IP</th>
+          <th>Tier</th>
+          <th>Score</th>
+          <th>Breakdown</th>
+        </tr>
+      </thead>
+      <tbody id="threat-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- ROW 3 ── CMS heatmap + SYN cookie events -->
+  <div class="panel" id="cms-panel">
+    <div class="panel-header">COUNT-MIN SKETCH</div>
+    <canvas id="cms-canvas"></canvas>
+    <div class="cms-legend">
+      <span style="color:#0f1525">■</span> zero &nbsp;
+      <span style="color:#004d1a">■</span> low &nbsp;
+      <span style="color:#00ff88">■</span> high
+    </div>
+  </div>
+
+  <div class="panel" id="cookie-panel">
+    <div class="panel-header">SYN COOKIE EVENTS</div>
+    <div id="cookie-log-entries" class="log-entries"></div>
+  </div>
+
+</div><!-- /.grid-container -->
+
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>

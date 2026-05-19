@@ -1,0 +1,461 @@
+/* ─── Design tokens ─────────────────────────────────────────── */
+:root {
+  --bg:        #0a0e1a;
+  --panel-bg:  rgba(0,255,136,0.03);
+  --border:    rgba(0,255,136,0.2);
+  --green:     #00ff88;
+  --cyan:      #00d4ff;
+  --red:       #ff3366;
+  --orange:    #ff8c00;
+  --yellow:    #ffdd00;
+  --purple:    #9b59b6;
+  --text:      #c8d8e8;
+  --dim:       #556070;
+  --font:      'JetBrains Mono', monospace;
+}
+
+/* ─── Reset & base ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  overflow-x: hidden;
+}
+
+/* ─── CRT scan-line overlay ──────────────────────────────────── */
+.crt-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgba(0,0,0,0.08) 2px,
+    rgba(0,0,0,0.08) 4px
+  );
+  animation: scan 4s linear infinite;
+}
+
+@keyframes scan {
+  from { background-position: 0 0; }
+  to   { background-position: 0 100px; }
+}
+
+/* ─── Anomaly alert banner ───────────────────────────────────── */
+.anomaly-alert {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 200;
+  padding: 8px;
+  text-align: center;
+  background: rgba(255,51,102,0.85);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  animation: pulse-border 1s ease-in-out infinite;
+}
+
+.hidden { display: none !important; }
+
+/* ─── Top bar ────────────────────────────────────────────────── */
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: rgba(0,0,0,0.6);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.top-bar-title {
+  color: var(--green);
+  font-weight: 700;
+  font-size: 14px;
+  text-shadow: 0 0 10px var(--green);
+  letter-spacing: 0.05em;
+}
+
+.top-bar-stats { display: flex; gap: 16px; }
+
+.stat-chip {
+  padding: 2px 10px;
+  border-radius: 3px;
+  border: 1px solid;
+  font-size: 11px;
+  font-weight: 700;
+}
+.stat-chip.syn   { border-color: var(--red);    color: var(--red); }
+.stat-chip.udp   { border-color: var(--orange);  color: var(--orange); }
+.stat-chip.icmp  { border-color: var(--purple);  color: var(--purple); }
+.stat-chip.total { border-color: var(--cyan);    color: var(--cyan); }
+
+/* ─── Grid layout ────────────────────────────────────────────── */
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-template-rows: 320px 280px 240px;
+  gap: 8px;
+  padding: 8px;
+}
+
+/* Row 1 */
+#traffic-panel  { grid-column: 1 / 8; }
+#attack-control { grid-column: 8 / 13; }
+
+/* Row 2 */
+#entropy-panel  { grid-column: 1 / 5; }
+#anomaly-panel  { grid-column: 5 / 9; }
+#threat-panel   { grid-column: 9 / 13; }
+
+/* Row 3 */
+#cms-panel      { grid-column: 1 / 5; }
+#cookie-panel   { grid-column: 5 / 13; }
+
+/* ─── Panel base ─────────────────────────────────────────────── */
+.panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.panel-header {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--green);
+  text-shadow: 0 0 8px var(--green);
+  letter-spacing: 0.12em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+  flex-shrink: 0;
+}
+
+/* ─── Network graph ──────────────────────────────────────────── */
+#network-graph {
+  flex: 1;
+  background: rgba(0,0,0,0.3);
+  border-radius: 3px;
+}
+
+/* ─── Attack Control ─────────────────────────────────────────── */
+.attack-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.attack-btn {
+  background: transparent;
+  border: 1px solid var(--green);
+  color: var(--green);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 4px;
+  cursor: pointer;
+  border-radius: 3px;
+  letter-spacing: 0.1em;
+  transition: background 0.2s, color 0.2s;
+}
+
+.attack-btn:hover {
+  background: rgba(0,255,136,0.15);
+}
+
+.attack-btn.active {
+  border-color: var(--red);
+  color: var(--red);
+  animation: pulse-border 1s ease-in-out infinite;
+}
+
+.attack-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 0 4px currentColor; }
+  50%       { box-shadow: 0 0 16px currentColor; }
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.control-group label {
+  color: var(--dim);
+  font-size: 10px;
+}
+
+.val-display {
+  color: var(--cyan);
+  font-weight: 700;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+
+.text-input {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 2px;
+  width: 100%;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--dim);
+  font-size: 10px;
+}
+
+.checkbox-label input[type="checkbox"] {
+  accent-color: var(--green);
+  cursor: pointer;
+}
+
+.dim-note {
+  color: #334050;
+  font-size: 9px;
+}
+
+.stop-btn {
+  background: rgba(255,51,102,0.12);
+  border: 1px solid var(--red);
+  color: var(--red);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 3px;
+  letter-spacing: 0.1em;
+  transition: background 0.2s;
+}
+
+.stop-btn:hover { background: rgba(255,51,102,0.25); }
+
+.attack-badge {
+  padding: 4px 8px;
+  background: rgba(255,51,102,0.15);
+  border: 1px solid var(--red);
+  border-radius: 3px;
+  color: var(--red);
+  font-size: 10px;
+  text-align: center;
+  animation: pulse-border 1s ease-in-out infinite;
+}
+
+/* ─── Traffic chart ──────────────────────────────────────────── */
+#traffic-panel canvas {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ─── Entropy gauges ─────────────────────────────────────────── */
+.gauges-row {
+  display: flex;
+  justify-content: space-around;
+  flex: 1;
+  align-items: center;
+}
+
+.gauge-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.gauge-title {
+  font-size: 9px;
+  color: var(--dim);
+  letter-spacing: 0.05em;
+}
+
+.entropy-note {
+  font-size: 9px;
+  color: var(--dim);
+  text-align: center;
+  font-style: italic;
+}
+
+/* ─── CMS heatmap ────────────────────────────────────────────── */
+#cms-canvas {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+.cms-legend {
+  font-size: 9px;
+  color: var(--dim);
+  text-align: center;
+}
+
+/* ─── Threat score table ─────────────────────────────────────── */
+.threat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  flex: 1;
+  overflow: auto;
+}
+
+.threat-table th {
+  color: var(--dim);
+  font-weight: 400;
+  text-align: left;
+  padding: 2px 4px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.threat-table td {
+  padding: 2px 4px;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(0,255,136,0.05);
+}
+
+/* Tier badges */
+.tier-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 2px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.tier-monitor    { background: rgba(0,212,255,0.15); color: var(--cyan);   border: 1px solid var(--cyan); }
+.tier-rate-limit { background: rgba(255,140,0,0.15); color: var(--orange); border: 1px solid var(--orange); }
+.tier-challenge  { background: rgba(255,221,0,0.15); color: var(--yellow); border: 1px solid var(--yellow); }
+.tier-block      { background: rgba(255,51,102,0.2); color: var(--red);    border: 1px solid var(--red); }
+
+/* Score breakdown bar */
+.score-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.04);
+  min-width: 80px;
+}
+
+.bar-rate       { background: var(--red); }
+.bar-entropy    { background: var(--orange); }
+.bar-anomaly    { background: var(--yellow); }
+.bar-reputation { background: var(--purple); }
+
+/* ─── Anomaly chart ──────────────────────────────────────────── */
+#anomaly-panel canvas {
+  flex: 1;
+  min-height: 0;
+}
+
+.z-value {
+  color: var(--cyan);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ─── SYN Cookie log ─────────────────────────────────────────── */
+.log-entries {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+}
+
+.log-entries::-webkit-scrollbar { width: 4px; }
+.log-entries::-webkit-scrollbar-track { background: transparent; }
+.log-entries::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.cookie-entry {
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-family: var(--font);
+}
+
+.cookie-valid { background: rgba(0,255,136,0.08); color: var(--green); }
+.cookie-fail  { background: rgba(255,51,102,0.1);  color: var(--red); }
+.cookie-miss  { background: rgba(255,140,0,0.08);  color: var(--orange); }
+
+/* ─── Blocked IPs table ──────────────────────────────────────── */
+.blocked-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.blocked-table th {
+  color: var(--dim);
+  font-weight: 400;
+  text-align: left;
+  padding: 2px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.blocked-table td {
+  padding: 2px 4px;
+  border-bottom: 1px solid rgba(0,255,136,0.05);
+  vertical-align: middle;
+}
+
+.ttl-urgent { color: var(--orange); }
+
+.unblock-btn {
+  background: transparent;
+  border: 1px solid var(--dim);
+  color: var(--dim);
+  font-family: var(--font);
+  font-size: 9px;
+  padding: 1px 5px;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.unblock-btn:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+/* ─── Scrollbar global ───────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ─── Ticker animation (value update flash) ──────────────────── */
+@keyframes ticker {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.05); color: var(--green); }
+  100% { transform: scale(1); }
+}
+
+.updated { animation: ticker 0.3s ease; }

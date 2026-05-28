@@ -27,6 +27,9 @@
     <span class="stat-chip udp">UDP <span id="hdr-udp">0</span> pps</span>
     <span class="stat-chip icmp">ICMP <span id="hdr-icmp">0</span> pps</span>
     <span class="stat-chip total">TOTAL <span id="hdr-total">0</span> pps</span>
+    <span class="stat-chip kpi">THREATS <span id="hdr-threats">0</span></span>
+    <span class="stat-chip kpi blocked">BLOCKED <span id="hdr-blocked">0</span></span>
+    <span class="stat-chip kpi">UPTIME <span id="hdr-uptime">00:00:00</span></span>
   </div>
 </header>
 
@@ -127,6 +130,17 @@
   <div class="panel" id="cookie-panel">
     <div class="panel-header">SYN COOKIE EVENTS</div>
     <div id="cookie-log-entries" class="log-entries"></div>
+  </div>
+
+  <!-- ROW 4 ── Mitigation log + System console -->
+  <div class="panel" id="mitigation-panel">
+    <div class="panel-header">MITIGATION LOG &nbsp;<span class="hdr-sub">tier transitions</span></div>
+    <div id="mitigation-log-entries" class="log-entries"></div>
+  </div>
+
+  <div class="panel" id="syslog-panel">
+    <div class="panel-header">SYSTEM LOG &nbsp;<span class="hdr-sub">pipeline console</span></div>
+    <div id="system-log-entries" class="log-entries console"></div>
   </div>
 
 </div><!-- /.grid-container -->

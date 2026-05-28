@@ -16,7 +16,11 @@ import sys
 import time
 import threading
 
-from config import CMS_WIDTH, CMS_DEPTH, DASHBOARD_PORT, SYN_RATE_THRESHOLD, UDP_RATE_THRESHOLD, ICMP_RATE_THRESHOLD
+from config import (
+    CMS_WIDTH, CMS_DEPTH, DASHBOARD_PORT,
+    SYN_RATE_THRESHOLD, UDP_RATE_THRESHOLD, ICMP_RATE_THRESHOLD,
+    ANOMALY_STDDEV_MULT, ENTROPY_HIGH_THRESH,
+)
 
 from core.capture import PacketCapture
 from core.analyzer import Analyzer
@@ -100,8 +104,15 @@ def main():
     dash_thread.start()
     log.info("Dashboard → http://localhost:%d", args.port)
 
+    dash.log_system("CAPTURE", f"sniffer attached to {args.interface} (BPF: ip and (tcp or udp or icmp))")
+    dash.log_system("FIREWALL", "iptables mitigation DISABLED — detection only"
+                    if args.no_firewall else "iptables chain DDOS_MITIGATE armed")
+
     # ── Main stats/event loop (1 s tick) ─────────────────────
     log.info("Event loop running")
+    tier_history: dict = {}   # ip -> last tier; drives the mitigation log
+    anomaly_active = False     # rising-edge latch for the anomaly console line
+    entropy_high = False       # rising-edge latch for high-entropy console line
     while True:
         time.sleep(1)
 
@@ -111,6 +122,18 @@ def main():
         src_e, dst_e = entropy.compute()
         entropy_contrib = min(1.0, src_e / 8.0)
         _, z = anomaly.check(agg["total"])
+
+        # ── Rising-edge console events for the system log ─────
+        if z >= ANOMALY_STDDEV_MULT and not anomaly_active:
+            anomaly_active = True
+            dash.log_system("ANOMALY", f"z={z:.1f}σ distributed-flood signature ({agg['total']:.0f} pps)")
+        elif z < ANOMALY_STDDEV_MULT:
+            anomaly_active = False
+        if src_e >= ENTROPY_HIGH_THRESH and not entropy_high:
+            entropy_high = True
+            dash.log_system("ENTROPY", f"H(src)={src_e:.2f} bits — many distinct sources")
+        elif src_e < ENTROPY_HIGH_THRESH:
+            entropy_high = False
 
         # ── Proactive per-tick scoring of all promoted IPs ────
         # Distributed/spoofed floods never exceed the per-IP rate threshold,
@@ -150,10 +173,28 @@ def main():
 
             budget -= 1
 
+        # ── Tier-transition logging ───────────────────────────
+        # One place to catch escalations/de-escalations from both scoring
+        # paths above; feeds the MITIGATION LOG panel.
+        for talker in adaptive.get_top_talkers(200):
+            t_ip, t_tier, t_score = talker["ip"], talker["tier"], talker["score"]
+            prev = tier_history.get(t_ip)
+            if t_tier != prev:
+                tier_history[t_ip] = t_tier
+                if not (prev is None and t_tier == "MONITOR"):
+                    dash.log_mitigation(t_ip, prev, t_tier, t_score)
+                    if t_tier == "BLOCK":
+                        dash.log_system("FIREWALL", f"BLOCK {t_ip} (score {t_score:.0f}) — iptables DROP")
+
         # ── Periodic pruning ──────────────────────────────────
         analyzer.prune_idle()
         rate_limiter.prune()
         adaptive.prune()
+        # Forget tiers for IPs the mitigator has dropped, so a returning IP
+        # logs a fresh transition rather than being silently suppressed.
+        _live = {t["ip"] for t in adaptive.get_top_talkers(500)}
+        for _ip in [k for k in tier_history if k not in _live]:
+            del tier_history[_ip]
 
         # ── Dashboard state snapshot ──────────────────────────
         top_talkers = adaptive.get_top_talkers(10)

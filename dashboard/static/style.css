@@ -97,12 +97,25 @@ html, body {
 .stat-chip.udp   { border-color: var(--orange);  color: var(--orange); }
 .stat-chip.icmp  { border-color: var(--purple);  color: var(--purple); }
 .stat-chip.total { border-color: var(--cyan);    color: var(--cyan); }
+.stat-chip.kpi   { border-color: var(--green);   color: var(--green); }
+.stat-chip.kpi span { color: #fff; }
+.stat-chip.kpi.active { border-color: var(--red); color: var(--red); animation: pulse-border 1s ease-in-out infinite; }
+.stat-chip.kpi.active span { color: var(--red); }
+
+/* Panel sub-label in headers */
+.hdr-sub {
+  font-weight: 400;
+  font-size: 9px;
+  color: var(--dim);
+  text-shadow: none;
+  letter-spacing: 0.04em;
+}
 
 /* ─── Grid layout ────────────────────────────────────────────── */
 .grid-container {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  grid-template-rows: 320px 280px 240px;
+  grid-template-rows: 320px 280px 240px 230px;
   gap: 8px;
   padding: 8px;
 }
@@ -119,6 +132,10 @@ html, body {
 /* Row 3 */
 #cms-panel      { grid-column: 1 / 5; }
 #cookie-panel   { grid-column: 5 / 13; }
+
+/* Row 4 */
+#mitigation-panel { grid-column: 1 / 6; }
+#syslog-panel     { grid-column: 6 / 13; }
 
 /* ─── Panel base ─────────────────────────────────────────────── */
 .panel {
@@ -386,6 +403,7 @@ input[type="range"] {
 /* ─── SYN Cookie log ─────────────────────────────────────────── */
 .log-entries {
   flex: 1;
+  min-height: 0;      /* allows flex child to shrink and scroll */
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -406,6 +424,84 @@ input[type="range"] {
 .cookie-valid { background: rgba(0,255,136,0.08); color: var(--green); }
 .cookie-fail  { background: rgba(255,51,102,0.1);  color: var(--red); }
 .cookie-miss  { background: rgba(255,140,0,0.08);  color: var(--orange); }
+
+/* ─── Mitigation log (tier transitions) ──────────────────────── */
+#mitigation-log-entries {
+  display: block;     /* same fix — override flex-column so it scrolls */
+}
+
+.mit-entry {
+  display: grid;
+  grid-template-columns: 56px 1fr auto 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  border-left: 3px solid var(--border);
+  border-radius: 2px;
+}
+
+.mit-ts    { color: var(--dim); font-size: 9px; }
+.mit-ip    { color: #aac; font-size: 10px; }
+.mit-arrow { color: var(--dim); font-size: 9px; text-align: right; }
+.mit-arrow b { font-weight: 700; }
+.mit-score { color: var(--cyan); font-weight: 700; text-align: right; }
+
+.mit-entry.tier-monitor    { border-left-color: var(--cyan); }
+.mit-entry.tier-monitor    .mit-arrow b { color: var(--cyan); }
+.mit-entry.tier-rate-limit { border-left-color: var(--orange); }
+.mit-entry.tier-rate-limit .mit-arrow b { color: var(--orange); }
+.mit-entry.tier-challenge  { border-left-color: var(--yellow); }
+.mit-entry.tier-challenge  .mit-arrow b { color: var(--yellow); }
+.mit-entry.tier-block      { border-left-color: var(--red); background: rgba(255,51,102,0.08); }
+.mit-entry.tier-block      .mit-arrow b { color: var(--red); }
+
+/* ─── System log (pipeline console) ──────────────────────────── */
+.log-entries.console {
+  display: block;     /* override flex-column so overflow-y: auto scrolls properly */
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(0,255,136,0.12);
+  border-radius: 3px;
+  padding: 6px;
+}
+
+.sys-prompt {
+  color: var(--green);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 1px 2px 4px;
+  border-bottom: 1px solid rgba(0,255,136,0.08);
+  margin-bottom: 3px;
+}
+
+.sys-cursor {
+  display: inline-block;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink { 50% { opacity: 0; } }
+
+.sys-entry {
+  display: grid;
+  grid-template-columns: 56px 78px 1fr;
+  gap: 6px;
+  padding: 1px 2px;
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sys-ts  { color: var(--dim); }
+.sys-lvl { font-weight: 700; }
+.sys-msg { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+
+.sys-capture  .sys-lvl { color: var(--cyan); }
+.sys-firewall .sys-lvl { color: var(--green); }
+.sys-attack   .sys-lvl { color: var(--purple); }
+.sys-anomaly  .sys-lvl { color: var(--red); }
+.sys-entropy  .sys-lvl { color: var(--yellow); }
+.sys-error    .sys-lvl { color: var(--red); }
+.sys-error    .sys-msg { color: var(--red); }
 
 /* ─── Blocked IPs table ──────────────────────────────────────── */
 .blocked-table {

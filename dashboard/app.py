@@ -5,6 +5,7 @@ import time
 import subprocess
 import threading
 import logging
+from collections import deque
 
 from flask import Flask, Response, render_template, request, jsonify
 
@@ -25,10 +26,41 @@ state: dict = {
     "syn_cookie_events": [],
     "attack_status": {"running": False, "type": None, "pid": None},
     "z_score": 0.0,
+    "mitigation_log": [],
+    "system_log": [],
 }
 
 _attack_proc: subprocess.Popen | None = None
 _firewall_ref = None   # injected by main.py
+
+# ── Event logs (dashboard panels) ─────────────────────────────────
+# Bounded ring buffers; surfaced verbatim in the SSE state blob.
+_LOG_CAP = 120
+_mitigation_log: deque = deque(maxlen=_LOG_CAP)   # tier transitions / blocks
+_system_log: deque = deque(maxlen=_LOG_CAP)       # pipeline / console events
+_START_TIME = time.time()
+
+
+def log_mitigation(ip: str, prev_tier: str | None, tier: str, score: float):
+    """Record a per-IP tier transition for the MITIGATION LOG panel."""
+    entry = {
+        "ts": time.strftime("%H:%M:%S"),
+        "ip": ip,
+        "prev": prev_tier or "NEW",
+        "tier": tier,
+        "score": round(score),
+    }
+    with _state_lock:
+        _mitigation_log.append(entry)
+        state["mitigation_log"] = list(_mitigation_log)
+
+
+def log_system(level: str, msg: str):
+    """Record a pipeline/console event for the SYSTEM LOG panel."""
+    entry = {"ts": time.strftime("%H:%M:%S"), "level": level.upper(), "msg": msg}
+    with _state_lock:
+        _system_log.append(entry)
+        state["system_log"] = list(_system_log)
 
 
 def set_firewall(fw):
@@ -57,6 +89,7 @@ def stream():
     def generate():
         while True:
             data = get_state()
+            data["uptime"] = int(time.time() - _START_TIME)
             yield f"data: {json.dumps(data)}\n\n"
             time.sleep(1)
 
@@ -86,6 +119,11 @@ def _watch_proc(proc: subprocess.Popen, attack_type: str):
             log.error("Simulator '%s' crashed (exit %d):\n%s", attack_type, code, stderr[-800:])
         else:
             log.warning("Simulator '%s' exited with code %d", attack_type, code)
+
+    if code != 0 and stderr:
+        log_system("ERROR", f"{attack_type} simulator exited ({code}): {stderr.splitlines()[-1][:80]}")
+    else:
+        log_system("ATTACK", f"{attack_type.upper()} flood finished")
 
     if _attack_proc is proc:
         _attack_proc = None
@@ -122,10 +160,13 @@ def attack_start():
             "pid": _attack_proc.pid,
         })
         log.info("Attack started: %s pid=%d", attack_type, _attack_proc.pid)
+        log_system("ATTACK", f"{attack_type.upper()} flood → {target} @ {rate}pps / {duration}s"
+                   + (" (fixed-src 10.0.1.1)" if (attack_type == "syn" and body.get("fixed_src")) else ""))
         threading.Thread(target=_watch_proc, args=(_attack_proc, attack_type), daemon=True).start()
         return jsonify({"pid": _attack_proc.pid})
     except Exception as e:
         log.error("Failed to start attack: %s", e)
+        log_system("ERROR", f"failed to start {attack_type} simulator: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -145,6 +186,7 @@ def kill_attack():
 @app.route("/api/attack/stop", methods=["POST"])
 def attack_stop():
     kill_attack()
+    log_system("ATTACK", "attack stopped by operator")
     return jsonify({"status": "stopped"})
 
 
@@ -154,6 +196,7 @@ def unblock():
     ip = body.get("ip")
     if _firewall_ref and ip:
         _firewall_ref.unblock_ip(ip)
+        log_system("FIREWALL", f"manual unblock {ip}")
         return jsonify({"status": "unblocked", "ip": ip})
     return jsonify({"error": "missing ip or firewall not ready"}), 400
 

@@ -16,6 +16,9 @@ evtSource.onmessage = (ev) => {
   updateCookieLog(data.syn_cookie_events);
   updateAnomalyChart(data.z_score);
   updateAttackStatus(data.attack_status);
+  updateMitigationLog(data.mitigation_log);
+  updateSystemLog(data.system_log);
+  updateKPIs(data);
 };
 
 evtSource.onerror = () => console.warn('SSE disconnected — retrying…');
@@ -26,6 +29,27 @@ function updateHeaderStats(pps) {
     const el = document.getElementById(`hdr-${k.toLowerCase()}`);
     if (el) el.textContent = Math.round(pps[k] || 0);
   });
+}
+
+// ── 2b. KPI chips (threats / blocked / uptime) ────────────────
+function fmtUptime(sec) {
+  sec = Math.max(0, sec | 0);
+  const h = String((sec / 3600) | 0).padStart(2, '0');
+  const m = String(((sec % 3600) / 60) | 0).padStart(2, '0');
+  const s = String(sec % 60).padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+function updateKPIs(data) {
+  const threats = (data.top_talkers || []).filter(t => (t.tier || 'MONITOR') !== 'MONITOR').length;
+  const blocked = (data.blocked || []).length;
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt('hdr-threats', threats);
+  setTxt('hdr-blocked', blocked);
+  setTxt('hdr-uptime', fmtUptime(data.uptime || 0));
+
+  const blkChip = document.getElementById('hdr-blocked')?.closest('.stat-chip');
+  if (blkChip) blkChip.classList.toggle('active', blocked > 0);
 }
 
 // ── 3. Traffic Chart (Chart.js) ───────────────────────────────
@@ -231,6 +255,40 @@ function updateCookieLog(events) {
 
     while (container.children.length > 50) container.removeChild(container.lastChild);
   }
+}
+
+// ── 7b. Mitigation Log (tier transitions) ────────────────────
+function updateMitigationLog(entries) {
+  const container = document.getElementById('mitigation-log-entries');
+  if (!container || !entries) return;
+
+  container.innerHTML = entries.slice(-60).reverse().map(ev => {
+    const cls = `tier-${(ev.tier || 'monitor').toLowerCase().replace('_', '-')}`;
+    return `<div class="mit-entry ${cls}">`
+      + `<span class="mit-ts">${ev.ts}</span>`
+      + `<span class="mit-ip">${ev.ip}</span>`
+      + `<span class="mit-arrow">${ev.prev} → <b>${ev.tier}</b></span>`
+      + `<span class="mit-score">${ev.score}</span>`
+      + `</div>`;
+  }).join('');
+}
+
+// ── 7c. System Log (pipeline console) ────────────────────────
+function updateSystemLog(entries) {
+  const container = document.getElementById('system-log-entries');
+  if (!container) return;
+
+  const prompt = `<div class="sys-prompt">monitor@ddos:~$ tail -f /var/log/pipeline <span class="sys-cursor">█</span></div>`;
+  if (!entries || !entries.length) { container.innerHTML = prompt; return; }
+
+  container.innerHTML = prompt + entries.slice(-80).reverse().map(ev => {
+    const lvl = (ev.level || 'info').toLowerCase();
+    return `<div class="sys-entry sys-${lvl}">`
+      + `<span class="sys-ts">${ev.ts}</span>`
+      + `<span class="sys-lvl">[${ev.level}]</span>`
+      + `<span class="sys-msg">${ev.msg}</span>`
+      + `</div>`;
+  }).join('');
 }
 
 // ── 8. Anomaly Z-Score Chart ──────────────────────────────────
